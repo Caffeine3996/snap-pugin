@@ -2,11 +2,43 @@ import React, { useEffect, useState } from "react";
 import ReactDOM from "react-dom/client";
 import { bitable, FieldType, ITextField } from "@lark-base-open/js-sdk";
 import { Button, Select, message, Checkbox, Space, Pagination } from "antd";
+import { calc } from "antd/es/theme/internal";
+
+// ====== 样式对象 ======
+const styles = {
+  container: {
+    display: "flex",
+    flexDirection: "column" as const,
+    height:'100vh',
+    boxSizing: "border-box" as const,
+    padding: 20,
+  },
+  selectWrapper: {
+    marginBottom: 25,
+    display: "flex",
+    gap: "20px",
+    alignItems: "center",
+  },
+  scrollArea: {
+    flex: 1,
+    overflowY: "auto" as const,
+  },
+  checkboxGroup: {
+    display: "flex",
+    flexDirection: "column" as const,
+    gap: 6,
+  },
+  footer: {
+    display: "flex",
+    gap: "20px",
+    marginTop: 10,
+    flexShrink: 0,
+  },
+};
 
 function LoadApp() {
   const [info, setInfo] = useState("正在获取表格信息，请稍候...");
   const [fieldMetaList, setFieldMetaList] = useState<any[]>([]);
-  const [fieldType, setFieldType] = useState<FieldType>(FieldType.Text);
   const [selectFieldId, setSelectFieldId] = useState<string>();
   const [fieldValues, setFieldValues] = useState<{ label: string; value: string }[]>([]);
   const [selectedValue, setSelectedValue] = useState<string>();
@@ -18,6 +50,7 @@ function LoadApp() {
   const [pageSize, setPageSize] = useState(10);
   const [total, setTotal] = useState(0);
 
+  // 页面初始化
   useEffect(() => {
     const init = async () => {
       try {
@@ -33,7 +66,26 @@ function LoadApp() {
         );
         if (defaultField) {
           setSelectFieldId(defaultField.id);
-          handleSelectField(defaultField.id);
+
+          const field = await table.getField<ITextField>(defaultField.id);
+          const recordIds = await table.getRecordIdList();
+
+          const values: string[] = [];
+          for (const id of recordIds) {
+            const val = await field.getValue(id);
+            if (Array.isArray(val) && val.length > 0 && val[0].text) {
+              values.push(val[0].text.trim());
+            }
+          }
+
+          const uniqueValues = Array.from(new Set(values)).sort();
+          const options = uniqueValues.map((v) => ({ label: v, value: v }));
+          setFieldValues(options);
+
+          if (options.length > 0) {
+            setSelectedValue(options[0].value);
+            handleCallAPI(1, pageSize, options[0].value, defaultField.id);
+          }
         }
       } catch (err) {
         console.error(err);
@@ -43,41 +95,26 @@ function LoadApp() {
     init();
   }, []);
 
-  const handleSelectField = async (fieldId: string) => {
-    setSelectFieldId(fieldId);
-    try {
-      const table = await bitable.base.getActiveTable();
-      const field = await table.getField<ITextField>(fieldId);
-      const recordIds = await table.getRecordIdList();
-
-      const values: string[] = [];
-      for (const id of recordIds) {
-        const val = await field.getValue(id);
-        if (Array.isArray(val) && val.length > 0 && val[0].text) {
-          values.push(val[0].text.trim());
-        }
-      }
-
-      const uniqueValues = Array.from(new Set(values)).sort();
-      setFieldValues(uniqueValues.map((v) => ({ label: v, value: v })));
-    } catch (err) {
-      console.error("获取字段数据失败", err);
-      message.error("获取字段数据失败");
-    }
-  };
-
-  const handleCallAPI = async (pageNum = page, pageSizeNum = pageSize) => {
-    if (!selectedValue || !selectFieldId) {
+  const handleCallAPI = async (
+    pageNum = page,
+    pageSizeNum = pageSize,
+    accountValue = selectedValue,
+    fieldId = selectFieldId
+  ) => {
+    if (!accountValue || !fieldId) {
       message.warning("请先选择字段和值");
       return;
     }
 
     try {
-      const url = `api/feishu_interface/feishu_media.php?customerId=${selectedValue}&page=${pageNum}&pageSize=${pageSizeNum}`;
+      const url = `api/feishu_interface/feishu_media.php?customerId=${accountValue}&page=${pageNum}&pageSize=${pageSizeNum}`;
       const res = await fetch(url);
       const data = await res.json();
 
       if (data.code !== 200 || !data.data?.list?.length) {
+        setApiDataList([]);
+        setSelectedIndexes([]);
+        setTotal(0);
         message.warning("未获取到有效数据");
         return;
       }
@@ -96,9 +133,7 @@ function LoadApp() {
     try {
       const table = await bitable.base.getActiveTable();
       const fields = await table.getFieldMetaList();
-      const targetField = fields.find(
-        (f) => f.name === "Ad Creative Media File"
-      );
+      const targetField = fields.find((f) => f.name === "Ad Creative Media File");
 
       if (!targetField) {
         message.error("未找到列：Ad Creative Media File");
@@ -134,7 +169,6 @@ function LoadApp() {
       }
 
       const fieldData = sourceRecord.fields || {};
-
       const newRecords = items.map((item) => {
         const newFields: any = { ...fieldData };
         newFields[targetField.id] = [{ type: "text", text: item.f_name }];
@@ -161,48 +195,33 @@ function LoadApp() {
   };
 
   return (
-    <div style={{ padding: 20 }}>
-      <div style={{ marginBottom: 10 }}>{info}</div>
-
+    <div style={styles.container}>
+      {/* 选择账户 */}
       {fieldValues.length > 0 && (
-        <div style={{ marginBottom: 10 }}>
-          <div style={{ marginBottom: 10 }}>选择账户</div>
+        <div style={styles.selectWrapper}>
+          <div>选择账户</div>
           <Select
             style={{ width: 220 }}
             options={fieldValues}
             value={selectedValue}
             placeholder="请选择一个账户"
-            onSelect={setSelectedValue}
+            onChange={(value) => {
+              setSelectedValue(value);
+              handleCallAPI(1, pageSize, value, selectFieldId);
+            }}
             getPopupContainer={(triggerNode) => triggerNode.parentElement!}
           />
         </div>
       )}
 
-      <Button type="primary" onClick={() => handleCallAPI(page, pageSize)} style={{ marginBottom: 10 }}>
-        获取数据
-      </Button>
-
+      {/* 中间滚动区域 */}
       {apiDataList.length > 0 && (
-        <div>
+        <div style={styles.scrollArea}>
           <Space direction="vertical" style={{ width: "100%", marginBottom: 10 }}>
-            <Button
-              type="primary"
-              onClick={() => {
-                if (selectedIndexes.length === 0) {
-                  message.warning("请至少选择一项");
-                  return;
-                }
-                const selectedItems = selectedIndexes.map((i) => apiDataList[i]);
-                writeToTable(selectedItems);
-              }}
-            >
-              写入选中数据到表格
-            </Button>
-
             <Checkbox.Group
               value={selectedIndexes}
               onChange={(checked) => setSelectedIndexes(checked as number[])}
-              style={{ display: "flex", flexDirection: "column", gap: 6 }}
+              style={styles.checkboxGroup}
             >
               {apiDataList.map((item, index) => (
                 <Checkbox key={index} value={index}>
@@ -211,7 +230,12 @@ function LoadApp() {
               ))}
             </Checkbox.Group>
           </Space>
+        </div>
+      )}
 
+      {/* 底部固定区域 */}
+      {apiDataList.length > 0 && (
+        <div style={styles.footer}>
           <Pagination
             current={page}
             pageSize={pageSize}
@@ -226,6 +250,19 @@ function LoadApp() {
               }
             }}
           />
+          <Button
+            type="primary"
+            onClick={() => {
+              if (selectedIndexes.length === 0) {
+                message.warning("请至少选择一项");
+                return;
+              }
+              const selectedItems = selectedIndexes.map((i) => apiDataList[i]);
+              writeToTable(selectedItems);
+            }}
+          >
+            写入选中数据到表格
+          </Button>
         </div>
       )}
     </div>
