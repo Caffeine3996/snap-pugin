@@ -1,36 +1,68 @@
 import React, { useEffect, useState } from "react";
 import ReactDOM from "react-dom/client";
 import { bitable, FieldType, ITextField } from "@lark-base-open/js-sdk";
-import { Button, Select, message, Checkbox, Space, Pagination } from "antd";
-import { calc } from "antd/es/theme/internal";
+import { Button, Select, message, Checkbox, Pagination } from "antd";
 
 // ====== 样式对象 ======
 const styles = {
   container: {
     display: "flex",
     flexDirection: "column" as const,
-    height:'100vh',
+    height: "100vh",
     boxSizing: "border-box" as const,
     padding: 20,
   },
   selectWrapper: {
     marginBottom: 25,
     display: "flex",
-    gap: "20px",
+    gap: 20,
     alignItems: "center",
   },
   scrollArea: {
     flex: 1,
     overflowY: "auto" as const,
   },
-  checkboxGroup: {
+  gridContainer: {
+    display: "grid",
+    gridTemplateColumns: "repeat(auto-fill, minmax(160px, 1fr))",
+    gap: 12,
+  },
+  card: {
+    border: "1px solid #e8e8e8",
+    borderRadius: 8,
+    padding: 8,
     display: "flex",
     flexDirection: "column" as const,
-    gap: 6,
+    alignItems: "center",
+    position: "relative" as const,
+    backgroundColor: "#fff",
+  },
+  img: {
+    width: "100%",
+    height: 100,
+    objectFit: "cover" as const,
+    borderRadius: 4,
+    marginBottom: 8,
+  },
+  checkbox: {
+    position: "absolute" as const,
+    top: 8,
+    left: 8,
+    zIndex: 1,
+  },
+  playIcon: {
+    fontSize: 24,
+    color: "#1890ff",
+    cursor: "pointer",
+    marginBottom: 8,
+  },
+  nameInfo: {
+    textAlign: "center" as const,
+    wordBreak: "break-word" as const,
   },
   footer: {
     display: "flex",
-    gap: "20px",
+    gap: 20,
     marginTop: 10,
     flexShrink: 0,
   },
@@ -40,17 +72,18 @@ function LoadApp() {
   const [info, setInfo] = useState("正在获取表格信息，请稍候...");
   const [fieldMetaList, setFieldMetaList] = useState<any[]>([]);
   const [selectFieldId, setSelectFieldId] = useState<string>();
-  const [fieldValues, setFieldValues] = useState<{ label: string; value: string }[]>([]);
+  const [fieldValues, setFieldValues] = useState<
+    { label: string; value: string }[]
+  >([]);
   const [selectedValue, setSelectedValue] = useState<string>();
 
   const [apiDataList, setApiDataList] = useState<any[]>([]);
-  const [selectedIndexes, setSelectedIndexes] = useState<number[]>([]);
+  const [selectedIds, setSelectedIds] = useState<string[]>([]);
 
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(10);
   const [total, setTotal] = useState(0);
 
-  // 页面初始化
   useEffect(() => {
     const init = async () => {
       try {
@@ -113,14 +146,14 @@ function LoadApp() {
 
       if (data.code !== 200 || !data.data?.list?.length) {
         setApiDataList([]);
-        setSelectedIndexes([]);
+        setSelectedIds([]);
         setTotal(0);
         message.warning("未获取到有效数据");
         return;
       }
 
       setApiDataList(data.data.list);
-      setSelectedIndexes([]);
+      setSelectedIds([]);
       setTotal(data.data.total || 0);
       setPage(pageNum);
     } catch (err) {
@@ -133,7 +166,9 @@ function LoadApp() {
     try {
       const table = await bitable.base.getActiveTable();
       const fields = await table.getFieldMetaList();
-      const targetField = fields.find((f) => f.name === "Ad Creative Media File");
+      const targetField = fields.find(
+        (f) => f.name === "Ad Creative Media File"
+      );
 
       if (!targetField) {
         message.error("未找到列：Ad Creative Media File");
@@ -194,6 +229,10 @@ function LoadApp() {
     handleCallAPI(1, newPageSize);
   };
 
+  const handlePlayVideo = (videoUrl: string) => {
+    window.open(videoUrl, "_blank");
+  };
+
   return (
     <div style={styles.container}>
       {/* 选择账户 */}
@@ -214,22 +253,38 @@ function LoadApp() {
         </div>
       )}
 
-      {/* 中间滚动区域 */}
+      {/* 网格卡片展示 */}
       {apiDataList.length > 0 && (
         <div style={styles.scrollArea}>
-          <Space direction="vertical" style={{ width: "100%", marginBottom: 10 }}>
-            <Checkbox.Group
-              value={selectedIndexes}
-              onChange={(checked) => setSelectedIndexes(checked as number[])}
-              style={styles.checkboxGroup}
-            >
-              {apiDataList.map((item, index) => (
-                <Checkbox key={index} value={index}>
-                  {item.f_name}
-                </Checkbox>
-              ))}
-            </Checkbox.Group>
-          </Space>
+          <div style={styles.gridContainer}>
+            {apiDataList.map((item) => (
+              <div key={item.back_key_id} style={styles.card}>
+                <Checkbox
+                  style={styles.checkbox}
+                  checked={selectedIds.includes(item.f_name)}
+                  onChange={(e) => {
+                    const checked = e.target.checked;
+                    setSelectedIds((prev) => {
+                      if (checked) return [...prev, item.f_name];
+                      else return prev.filter((name) => name !== item.f_name);
+                    });
+                  }}
+                />
+                <img
+                  src={item.f_thumbnail}
+                  alt={item.f_name}
+                  style={styles.img}
+                />
+                <div
+                  style={{ fontSize: 24, cursor: "pointer" }}
+                  onClick={() => handlePlayVideo(item.avatar_video)}
+                >
+                  ▶️
+                </div>
+                <div style={styles.nameInfo}>{item.f_name}</div>
+              </div>
+            ))}
+          </div>
         </div>
       )}
 
@@ -253,11 +308,13 @@ function LoadApp() {
           <Button
             type="primary"
             onClick={() => {
-              if (selectedIndexes.length === 0) {
+              if (selectedIds.length === 0) {
                 message.warning("请至少选择一项");
                 return;
               }
-              const selectedItems = selectedIndexes.map((i) => apiDataList[i]);
+              const selectedItems = apiDataList.filter((item) =>
+                selectedIds.includes(item.f_name)
+              );
               writeToTable(selectedItems);
             }}
           >
