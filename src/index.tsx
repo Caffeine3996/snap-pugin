@@ -1,33 +1,22 @@
 import React, { useEffect, useState } from "react";
 import ReactDOM from "react-dom/client";
 import { bitable, FieldType, ITextField } from "@lark-base-open/js-sdk";
-import {
-  Alert,
-  Button,
-  Select,
-  message,
-  Checkbox,
-  Drawer,
-  Space,
-  Pagination,
-} from "antd";
+import { Button, Select, message, Checkbox, Space, Pagination } from "antd";
 
 function LoadApp() {
   const [info, setInfo] = useState("正在获取表格信息，请稍候...");
-  const [alertType, setAlertType] = useState<"info" | "success" | "error">(
-    "info"
-  );
   const [fieldMetaList, setFieldMetaList] = useState<any[]>([]);
   const [fieldType, setFieldType] = useState<FieldType>(FieldType.Text);
   const [selectFieldId, setSelectFieldId] = useState<string>();
-  const [fieldValues, setFieldValues] = useState<
-    { label: string; value: string }[]
-  >([]);
+  const [fieldValues, setFieldValues] = useState<{ label: string; value: string }[]>([]);
   const [selectedValue, setSelectedValue] = useState<string>();
 
   const [apiDataList, setApiDataList] = useState<any[]>([]);
   const [selectedIndexes, setSelectedIndexes] = useState<number[]>([]);
-  const [drawerVisible, setDrawerVisible] = useState(false); // 控制抽屉显示
+
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(10);
+  const [total, setTotal] = useState(0);
 
   useEffect(() => {
     const init = async () => {
@@ -35,7 +24,6 @@ function LoadApp() {
         const table = await bitable.base.getActiveTable();
         const tableName = await table.getName();
         setInfo(`表格名称：${tableName}`);
-        setAlertType("success");
 
         const fields = await table.getFieldMetaList();
         setFieldMetaList(fields);
@@ -50,7 +38,6 @@ function LoadApp() {
       } catch (err) {
         console.error(err);
         setInfo("获取表格信息失败，请检查表格或权限");
-        setAlertType("error");
       }
     };
     init();
@@ -79,16 +66,6 @@ function LoadApp() {
     }
   };
 
-  const formatFieldList = () => {
-    if (!fieldType) return [];
-    return fieldMetaList
-      .filter((f) => f.type === fieldType)
-      .map((f) => ({ label: f.name, value: f.id }));
-  };
-  const [page, setPage] = useState(1);
-  const [pageSize, setPageSize] = useState(10);
-  const [total, setTotal] = useState(0);
-
   const handleCallAPI = async (pageNum = page, pageSizeNum = pageSize) => {
     if (!selectedValue || !selectFieldId) {
       message.warning("请先选择字段和值");
@@ -109,7 +86,6 @@ function LoadApp() {
       setSelectedIndexes([]);
       setTotal(data.data.total || 0);
       setPage(pageNum);
-      setDrawerVisible(true); // 打开抽屉
     } catch (err) {
       console.error("接口调用失败", err);
       message.error("接口调用失败");
@@ -167,26 +143,27 @@ function LoadApp() {
 
       await table.addRecords(newRecords);
       message.success(`成功创建 ${newRecords.length} 条新记录`);
-      setDrawerVisible(false);
     } catch (err) {
       console.error("创建新记录失败", err);
       message.error("创建新记录失败");
     }
   };
-  // 页码变化
+
   const handlePageChange = (newPage: number) => {
     setPage(newPage);
     handleCallAPI(newPage, pageSize);
   };
 
-  // pageSize 改变
   const handlePageSizeChange = (current: number, newPageSize: number) => {
     setPageSize(newPageSize);
-    setPage(1); // pageSize 改变时，重置为第一页
+    setPage(1);
     handleCallAPI(1, newPageSize);
   };
+
   return (
     <div style={{ padding: 20 }}>
+      <div style={{ marginBottom: 10 }}>{info}</div>
+
       {fieldValues.length > 0 && (
         <div style={{ marginBottom: 10 }}>
           <div style={{ marginBottom: 10 }}>选择账户</div>
@@ -200,21 +177,14 @@ function LoadApp() {
           />
         </div>
       )}
-      <Button type="primary" onClick={() => handleCallAPI(page, pageSize)}>
+
+      <Button type="primary" onClick={() => handleCallAPI(page, pageSize)} style={{ marginBottom: 10 }}>
         获取数据
       </Button>
 
-      <Drawer
-        title="素材"
-        placement="bottom"
-        height={400} // 高度自己调
-        onClose={() => setDrawerVisible(false)}
-        open={drawerVisible}
-        styles={{
-          body: { padding: 0, display: "flex", flexDirection: "column" },
-        }}
-        extra={
-          <Space>
+      {apiDataList.length > 0 && (
+        <div>
+          <Space direction="vertical" style={{ width: "100%", marginBottom: 10 }}>
             <Button
               type="primary"
               onClick={() => {
@@ -222,47 +192,31 @@ function LoadApp() {
                   message.warning("请至少选择一项");
                   return;
                 }
-                const selectedItems = selectedIndexes.map(
-                  (i) => apiDataList[i]
-                );
+                const selectedItems = selectedIndexes.map((i) => apiDataList[i]);
                 writeToTable(selectedItems);
               }}
             >
               写入选中数据到表格
             </Button>
-          </Space>
-        }
-      >
-        {/* 中间可滚动区域 */}
-        <div style={{ flex: 1, overflowY: "auto", padding: 24 }}>
-          <Checkbox.Group
-            value={selectedIndexes}
-            onChange={(checked) => setSelectedIndexes(checked as number[])}
-            style={{ display: "flex", flexDirection: "column", gap: 6 }}
-          >
-            {apiDataList.map((item, index) => (
-              <Checkbox key={index} value={index}>
-                {item.f_name}
-              </Checkbox>
-            ))}
-          </Checkbox.Group>
-        </div>
 
-        {/* 底部分页固定 */}
-        <div
-          style={{
-            borderTop: "1px solid #f0f0f0",
-            padding: 8,
-            textAlign: "center",
-            background: "#fff",
-          }}
-        >
+            <Checkbox.Group
+              value={selectedIndexes}
+              onChange={(checked) => setSelectedIndexes(checked as number[])}
+              style={{ display: "flex", flexDirection: "column", gap: 6 }}
+            >
+              {apiDataList.map((item, index) => (
+                <Checkbox key={index} value={index}>
+                  {item.f_name}
+                </Checkbox>
+              ))}
+            </Checkbox.Group>
+          </Space>
+
           <Pagination
             current={page}
             pageSize={pageSize}
             total={total}
             pageSizeOptions={[10, 20, 50]}
-            
             showSizeChanger
             onChange={(pageNum, newPageSize) => {
               if (newPageSize !== pageSize) {
@@ -273,7 +227,7 @@ function LoadApp() {
             }}
           />
         </div>
-      </Drawer>
+      )}
     </div>
   );
 }
