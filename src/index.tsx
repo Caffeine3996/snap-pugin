@@ -3,20 +3,16 @@ import ReactDOM from "react-dom/client";
 import { bitable, FieldType, ITextField } from "@lark-base-open/js-sdk";
 import { Button, Select, message, Checkbox, Pagination, Tooltip } from "antd";
 import styles from "./index.module.css";
-// ====== 样式对象 ======
-
 
 function LoadApp() {
   const [info, setInfo] = useState("正在获取表格信息，请稍候...");
   const [fieldMetaList, setFieldMetaList] = useState<any[]>([]);
   const [selectFieldId, setSelectFieldId] = useState<string>();
-  const [fieldValues, setFieldValues] = useState<
-    { label: string; value: string }[]
-  >([]);
+  const [fieldValues, setFieldValues] = useState<{ label: string; value: string }[]>([]);
   const [selectedValue, setSelectedValue] = useState<string>();
 
   const [apiDataList, setApiDataList] = useState<any[]>([]);
-  const [selectedIds, setSelectedIds] = useState<string[]>([]);
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
 
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(10);
@@ -84,14 +80,12 @@ function LoadApp() {
 
       if (data.code !== 200 || !data.data?.list?.length) {
         setApiDataList([]);
-        setSelectedIds([]);
         setTotal(0);
         message.warning("未获取到有效数据");
         return;
       }
 
       setApiDataList(data.data.list);
-      setSelectedIds([]);
       setTotal(data.data.total || 0);
       setPage(pageNum);
     } catch (err) {
@@ -104,9 +98,7 @@ function LoadApp() {
     try {
       const table = await bitable.base.getActiveTable();
       const fields = await table.getFieldMetaList();
-      const targetField = fields.find(
-        (f) => f.name === "Ad Creative Media File"
-      );
+      const targetField = fields.find((f) => f.name === "Ad Creative Media File");
 
       if (!targetField) {
         message.error("未找到列：Ad Creative Media File");
@@ -157,20 +149,29 @@ function LoadApp() {
   };
 
   const handlePageChange = (newPage: number) => {
-    setPage(newPage);
     handleCallAPI(newPage, pageSize);
   };
 
   const handlePageSizeChange = (current: number, newPageSize: number) => {
     setPageSize(newPageSize);
-    setPage(1);
     handleCallAPI(1, newPageSize);
   };
 
-  const handlePlayVideo = (item: object) => {
+  const handlePlayVideo = (item: any) => {
     window.open(item.f_path, "_blank");
   };
+  // 新增方法
+  const handleWriteSelectedToTable = async () => {
+    if (selectedIds.size === 0) {
+      message.warning("请至少选择一项");
+      return;
+    }
 
+    // 这里直接用 selectedIds 创建 items，如果只需要 f_name
+    const selectedItems = Array.from(selectedIds).map((name) => ({ f_name: name }));
+
+    await writeToTable(selectedItems);
+  };
   return (
     <div className={styles.container}>
       {/* 选择账户 */}
@@ -199,30 +200,23 @@ function LoadApp() {
               <div key={item.back_key_id} className={styles.card}>
                 <Checkbox
                   className={styles.checkbox}
-                  checked={selectedIds.includes(item.f_name)}
+                  checked={selectedIds.has(item.f_name)}
                   onChange={(e) => {
                     const checked = e.target.checked;
                     setSelectedIds((prev) => {
-                      if (checked) return [...prev, item.f_name];
-                      else return prev.filter((name) => name !== item.f_name);
+                      const newSet = new Set(prev);
+                      if (checked) newSet.add(item.f_name);
+                      else newSet.delete(item.f_name);
+                      return newSet;
                     });
                   }}
                 />
-                <img
-                  src={item.f_thumbnail}
-                  alt={item.f_name}
-                  className={styles.img}
-                />
-                <div
-                  className={styles.playIcon}
-                  onClick={() => handlePlayVideo(item)}
-                >
-
-                </div>
+                <img src={item.f_thumbnail} alt={item.f_name} className={styles.img} />
+                <div className={styles.playIcon} onClick={() => handlePlayVideo(item)} />
                 <div className={styles.nameInfo}>
                   <Tooltip title={item.f_name}>
                     <div className={styles.name}>
-                      <span> {item.f_name}</span>
+                      <span>{item.f_name}</span>
                     </div>
                   </Tooltip>
                 </div>
@@ -249,26 +243,13 @@ function LoadApp() {
               }
             }}
           />
-          <Button
-            type="primary"
-            onClick={() => {
-              if (selectedIds.length === 0) {
-                message.warning("请至少选择一项");
-                return;
-              }
-              const selectedItems = apiDataList.filter((item) =>
-                selectedIds.includes(item.f_name)
-              );
-              writeToTable(selectedItems);
-            }}
-          >
+          <Button type="primary" onClick={handleWriteSelectedToTable}>
             写入选中数据到表格
           </Button>
         </div>
       )}
     </div>
   );
-
 }
 
 ReactDOM.createRoot(document.getElementById("root") as HTMLElement).render(
