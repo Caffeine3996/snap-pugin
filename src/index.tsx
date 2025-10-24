@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from "react";
 import ReactDOM from "react-dom/client";
 import { bitable, FieldType, ITextField } from "@lark-base-open/js-sdk";
-import { Button, Select, message, Checkbox, Pagination, Tooltip, Modal } from "antd";
+import { Button, Select, message, Checkbox, Pagination, Tooltip, Modal, Input } from "antd";
 
 import styles from "./index.module.css";
 import { CloseOutlined, PlayCircleOutlined } from "@ant-design/icons";
@@ -20,6 +20,7 @@ function LoadApp() {
   const [total, setTotal] = useState(0);
   const [previewVisible, setPreviewVisible] = useState(false);
   const [previewContent, setPreviewContent] = useState<{ type: "video" | "image"; url: string, name: string } | null>(null);
+  const [keyword, setKeyword] = useState<string>("");
   useEffect(() => {
     const init = async () => {
       try {
@@ -68,7 +69,8 @@ function LoadApp() {
     pageNum = page,
     pageSizeNum = pageSize,
     accountValue = selectedValue,
-    fieldId = selectFieldId
+    fieldId = selectFieldId,
+    keywordValue = keyword
   ) => {
     if (!accountValue || !fieldId) {
       message.warning("请先选择字段和值");
@@ -76,7 +78,7 @@ function LoadApp() {
     }
 
     try {
-      const url = `api/feishu_interface/feishu_media.php?customerId=${accountValue}&page=${pageNum}&pageSize=${pageSizeNum}`;
+      const url = `api/feishu_interface/feishu_media.php?customerId=${accountValue}&page=${pageNum}&pageSize=${pageSizeNum}&name=${encodeURIComponent(keywordValue)}`;
       const res = await fetch(url);
       const data = await res.json();
 
@@ -180,12 +182,21 @@ function LoadApp() {
 
     await writeToTable(selectedItems);
   };
+  // 输入变化时自动触发搜索（防抖）
+  useEffect(() => {
+    const handler = setTimeout(() => {
+      if (selectedValue) {
+        handleCallAPI(1, pageSize, selectedValue, selectFieldId, keyword);
+      }
+    }, 500);
+
+    return () => clearTimeout(handler);
+  }, [keyword]);
   return (
     <div className={styles.container}>
       {/* 选择账户 */}
       {fieldValues.length > 0 && (
         <div className={styles.selectWrapper}>
-          <div>选择账户</div>
           <Select
             style={{ width: 220 }}
             options={fieldValues}
@@ -197,6 +208,15 @@ function LoadApp() {
             }}
             getPopupContainer={(triggerNode) => triggerNode.parentElement!}
           />
+          <Input
+            placeholder="输入关键字搜索"
+            value={keyword}
+            allowClear
+            onChange={(e) => setKeyword(e.target.value)}
+            style={{ width: 200,}}
+          />
+
+
           {/* 只有有选中素材才显示 */}
           {selectedIds.size > 0 && (
             <div >
