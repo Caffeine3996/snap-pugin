@@ -88,12 +88,12 @@
   left: 0;
   right: 0;
   background-color: rgba(0, 0, 0, .5);
+  z-index: 3;
 }
 
 .name {
   padding: 5px 10px 8px;
   font-size: 12px;
-
   color: #fff;
   white-space: nowrap;
   /* 强制单行显示，不换行 */
