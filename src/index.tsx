@@ -3,7 +3,7 @@ import ReactDOM from "react-dom/client";
 import { bitable, FieldType, ITextField } from "@lark-base-open/js-sdk";
 import { Button, Select, message, Checkbox, Pagination, Tooltip } from "antd";
 import styles from "./index.module.css";
-
+import { CloseOutlined, PlayCircleOutlined } from "@ant-design/icons";
 function LoadApp() {
   const [info, setInfo] = useState("正在获取表格信息，请稍候...");
   const [fieldMetaList, setFieldMetaList] = useState<any[]>([]);
@@ -189,6 +189,24 @@ function LoadApp() {
             }}
             getPopupContainer={(triggerNode) => triggerNode.parentElement!}
           />
+          {/* 只有有选中素材才显示 */}
+          {selectedIds.size > 0 && (
+            <div >
+              <Button
+                type="primary"
+
+              >
+                已经选择{selectedIds.size} 个素材
+                <CloseOutlined
+                  style={{ marginLeft: 8 }}
+                  onClick={(e) => {
+                    e.stopPropagation(); // 阻止冒泡
+                    setSelectedIds(new Set());
+                  }}
+                />
+              </Button>
+            </div>
+          )}
         </div>
       )}
 
@@ -212,7 +230,13 @@ function LoadApp() {
                   }}
                 />
                 <img src={item.f_thumbnail} alt={item.f_name} className={styles.img} />
-                <div className={styles.playIcon} onClick={() => handlePlayVideo(item)} />
+      
+                  <PlayCircleOutlined
+                    className={styles.playIcon}
+                    onClick={() => handlePlayVideo(item)}
+                   
+                  />
+             
                 <div className={styles.nameInfo}>
                   <Tooltip title={item.f_name}>
                     <div className={styles.name}>

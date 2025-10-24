@@ -58,28 +58,19 @@
 
 }
 
+
 .playIcon {
+  font-size: 24px;
+  color: #f6efef;
+  cursor: pointer;
   position: absolute;
   top: 50%;
   left: 50%;
   transform: translate(-50%, -50%);
-  width: 26px;
-  height: 36px;
-  z-index: 2;
-  cursor: pointer;
+  z-index: 3;
+  
 }
 
-.playIcon::before {
-  content: "";
-  width: 26px;
-  height: 26px;
-  position: absolute;
-  top: 50%;
-  left: 50%;
-  transform: translate(-50%, -50%);
-  background: url('https://performad.onemad.com/img/videoBtn.dc051bb3.svg');
-  background-size: cover;
-}
 
 .nameInfo {
   position: absolute;
