@@ -77,7 +77,7 @@
 }
 
 :global(.ant-checkbox) {
-    left: 6px;
-    top: 6px;
+  left: 6px;
+  top: 6px;
   align-self: start;
 }
