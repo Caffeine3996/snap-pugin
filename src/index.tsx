@@ -254,7 +254,7 @@ function LoadApp() {
             style={{ width: 200 }}
           />
           <SettingOutlined
-            style={{ fontSize: 24, marginLeft: 12, cursor: "pointer" }}
+            style={{ fontSize: 16,  cursor: "pointer" }}
             onClick={() => {
               setTempRecordId(selectedRecordId);
               setTempTargetFieldId(targetFieldId);
