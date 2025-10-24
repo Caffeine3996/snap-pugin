@@ -1,10 +1,21 @@
 import React, { useEffect, useState } from "react";
 import ReactDOM from "react-dom/client";
 import { bitable, FieldType, ITextField } from "@lark-base-open/js-sdk";
-import { Button, Select, message, Checkbox, Pagination, Tooltip, Modal, Input } from "antd";
-
+import {
+  Button,
+  Select,
+  message,
+  Checkbox,
+  Pagination,
+  Tooltip,
+  Drawer,
+  Input,
+  Form,
+  Modal
+} from "antd";
 import styles from "./index.module.css";
-import { CloseOutlined, PlayCircleOutlined } from "@ant-design/icons";
+import { CloseOutlined, PlayCircleOutlined, SettingOutlined } from "@ant-design/icons";
+
 function LoadApp() {
   const [info, setInfo] = useState("正在获取表格信息，请稍候...");
   const [fieldMetaList, setFieldMetaList] = useState<any[]>([]);
@@ -19,11 +30,18 @@ function LoadApp() {
   const [pageSize, setPageSize] = useState(10);
   const [total, setTotal] = useState(0);
   const [previewVisible, setPreviewVisible] = useState(false);
-  const [previewContent, setPreviewContent] = useState<{ type: "video" | "image"; url: string, name: string } | null>(null);
+  const [previewContent, setPreviewContent] = useState<{ type: "video" | "image"; url: string; name: string } | null>(null);
   const [keyword, setKeyword] = useState<string>("");
+
+  // 主状态：源记录和写入列
   const [targetFieldId, setTargetFieldId] = useState<string>();
   const [recordList, setRecordList] = useState<{ id: string; name: string }[]>([]);
   const [selectedRecordId, setSelectedRecordId] = useState<string>();
+  const [settingsVisible, setSettingsVisible] = useState(false);
+
+  // 临时状态：抽屉内选择
+  const [tempRecordId, setTempRecordId] = useState<string | undefined>();
+  const [tempTargetFieldId, setTempTargetFieldId] = useState<string | undefined>();
 
   useEffect(() => {
     const init = async () => {
@@ -38,9 +56,9 @@ function LoadApp() {
         const defaultField = fields.find(
           (f) => f.type === FieldType.Text && f.name === "广告账户"
         );
+
         if (defaultField) {
           setSelectFieldId(defaultField.id);
-
           const field = await table.getField<ITextField>(defaultField.id);
           const recordIds = await table.getRecordIdList();
 
@@ -56,18 +74,17 @@ function LoadApp() {
           const options = uniqueValues.map((v) => ({ label: v, value: v }));
           setFieldValues(options);
 
-          const adIdField = fields.find(f => f.name === "广告账户"); // 找到广告ID字段
+          const adIdField = fields.find((f) => f.name === "广告账户");
           const adIdFieldId = adIdField?.id;
 
           const recordOptions: { id: string; name: string }[] = [];
-
           for (const id of recordIds) {
             const record = await table.getRecordById(id);
             if (record) {
               const adIdValue = adIdFieldId ? record.fields[adIdFieldId]?.[0]?.text : undefined;
               recordOptions.push({
                 id,
-                name: adIdValue || `记录 ${id}`, // 如果广告ID有值就显示，没有就显示默认
+                name: adIdValue || `记录 ${id}`,
               });
             }
           }
@@ -179,7 +196,6 @@ function LoadApp() {
     }
   };
 
-
   const handlePageChange = (newPage: number) => {
     handleCallAPI(newPage, pageSize);
   };
@@ -189,27 +205,21 @@ function LoadApp() {
     handleCallAPI(1, newPageSize);
   };
 
-  const handlePlayVideo = (item: any) => {
-    window.open(item.f_path, "_blank");
-  };
   const handlePreview = (item: any) => {
-    const isVideo = item.f_name?.endsWith(".mp4") || item.f_path?.endsWith(".mov"); // 简单判断视频类型
-
+    const isVideo = item.f_name?.endsWith(".mp4") || item.f_path?.endsWith(".mov");
     setPreviewContent({ type: isVideo ? "video" : "image", url: item.f_path, name: item.f_name });
     setPreviewVisible(true);
   };
-  // 新增方法
+
   const handleWriteSelectedToTable = async () => {
     if (selectedIds.size === 0) {
       message.warning("请至少选择一项");
       return;
     }
-
-    // 这里直接用 selectedIds 创建 items，如果只需要 f_name
     const selectedItems = Array.from(selectedIds).map((name) => ({ f_name: name }));
-
     await writeToTable(selectedItems);
   };
+
   // 输入变化时自动触发搜索（防抖）
   useEffect(() => {
     const handler = setTimeout(() => {
@@ -217,9 +227,9 @@ function LoadApp() {
         handleCallAPI(1, pageSize, selectedValue, selectFieldId, keyword);
       }
     }, 500);
-
     return () => clearTimeout(handler);
   }, [keyword]);
+
   return (
     <div className={styles.container}>
       {/* 选择账户 */}
@@ -241,58 +251,30 @@ function LoadApp() {
             value={keyword}
             allowClear
             onChange={(e) => setKeyword(e.target.value)}
-            style={{ width: 200, }}
+            style={{ width: 200 }}
           />
-
-
-          <Select
-            style={{ width: 220 }}
-            showSearch
-            placeholder="选择源记录"
-            value={selectedRecordId}
-            onChange={(value) => setSelectedRecordId(value)}
-            options={recordList.map((r) => ({
-              label: r.name,
-              value: r.id,
-            }))}
-            getPopupContainer={(triggerNode) => triggerNode.parentElement!}
+          <SettingOutlined
+            style={{ fontSize: 24, marginLeft: 12, cursor: "pointer" }}
+            onClick={() => {
+              setTempRecordId(selectedRecordId);
+              setTempTargetFieldId(targetFieldId);
+              setSettingsVisible(true);
+            }}
           />
-
-          {/* 新增：目标列选择 */}
-          <Select
-            showSearch
-            style={{ width: 220 }}
-            placeholder="请选择写入列"
-            value={targetFieldId}
-            onChange={(value) => setTargetFieldId(value)}
-            options={fieldMetaList.map((f) => ({
-              label: f.name,
-              value: f.id,
-            }))}
-            getPopupContainer={(triggerNode) => triggerNode.parentElement!}
-          />
-
-          {/* 只有有选中素材才显示 */}
           {selectedIds.size > 0 && (
-            <div >
-              <Button
-                type="primary"
-
-              >
+            <div>
+              <Button type="primary">
                 选{selectedIds.size}个素材
                 <CloseOutlined
                   style={{ marginLeft: 8 }}
                   onClick={(e) => {
-                    e.stopPropagation(); // 阻止冒泡
+                    e.stopPropagation();
                     setSelectedIds(new Set());
                   }}
                 />
               </Button>
             </div>
           )}
-
-
-
         </div>
       )}
 
@@ -316,13 +298,7 @@ function LoadApp() {
                   }}
                 />
                 <img src={item.f_thumbnail} alt={item.f_name} className={styles.img} />
-
-                <PlayCircleOutlined
-                  className={styles.playIcon}
-                  onClick={() => handlePreview(item)}
-
-                />
-
+                <PlayCircleOutlined className={styles.playIcon} onClick={() => handlePreview(item)} />
                 <div className={styles.nameInfo}>
                   <Tooltip title={item.f_name}>
                     <div className={styles.name}>
@@ -358,19 +334,14 @@ function LoadApp() {
           </Button>
         </div>
       )}
+
+      {/* 预览 Modal */}
       <Modal
-        open={previewVisible}      // 使用 open 替代 visible
+        open={previewVisible}
         footer={null}
         title={
           <Tooltip title={previewContent?.name}>
-            <div
-              style={{
-                maxWidth: 280,
-                overflow: "hidden",
-                textOverflow: "ellipsis",
-                whiteSpace: "nowrap",
-              }}
-            >
+            <div style={{ maxWidth: 280, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
               {previewContent?.name || "未知文件名"}
             </div>
           </Tooltip>
@@ -378,15 +349,61 @@ function LoadApp() {
         onCancel={() => setPreviewVisible(false)}
         width={360}
       >
-        <div style={{ paddingTop: '30px' }}>
+        <div style={{ paddingTop: 30 }}>
           {previewContent?.type === "video" ? (
             <video src={previewContent.url} controls width="100%" height="450px" onError={() => message.error("视频无法播放，请检查链接或格式")} />
           ) : (
-            <img src={previewContent?.url} alt="preview" style={{ width: "100%", height: '400px', objectFit: 'contain' }} />
+            <img src={previewContent?.url} alt="preview" style={{ width: "100%", height: 400, objectFit: "contain" }} />
           )}
         </div>
       </Modal>
 
+      {/* 设置 Drawer */}
+      <Drawer
+        title="选择源记录与写入列"
+        placement="right"
+        width={360}
+        onClose={() => setSettingsVisible(false)}
+        open={settingsVisible}
+        footer={
+          <div style={{ textAlign: "right" }}>
+            <Button style={{ marginRight: 8 }} onClick={() => setSettingsVisible(false)}>取消</Button>
+            <Button
+              type="primary"
+              onClick={() => {
+                setSelectedRecordId(tempRecordId);
+                setTargetFieldId(tempTargetFieldId);
+                setSettingsVisible(false);
+              }}
+            >
+              确定
+            </Button>
+          </div>
+        }
+      >
+        <Form layout="horizontal" colon={false}>
+          <Form.Item label="源记录">
+            <Select
+              showSearch
+              placeholder="请选择源记录"
+              value={tempRecordId}
+              onChange={(value) => setTempRecordId(value)}
+              options={recordList.map((r) => ({ label: r.name, value: r.id }))}
+              getPopupContainer={(triggerNode) => triggerNode.parentElement!}
+            />
+          </Form.Item>
+          <Form.Item label="写入列">
+            <Select
+              showSearch
+              placeholder="请选择写入列"
+              value={tempTargetFieldId}
+              onChange={(value) => setTempTargetFieldId(value)}
+              options={fieldMetaList.map((f) => ({ label: f.name, value: f.id }))}
+              getPopupContainer={(triggerNode) => triggerNode.parentElement!}
+            />
+          </Form.Item>
+        </Form>
+      </Drawer>
     </div>
   );
 }
