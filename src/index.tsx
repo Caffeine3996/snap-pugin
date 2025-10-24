@@ -217,9 +217,11 @@ return (
                 className={styles.playIcon}
                 onClick={() => handlePlayVideo(item.avatar_video)}
               >
-                ▶️
+                ▶
               </div>
-              <div className={styles.nameInfo}>{item.f_name}</div>
+              <div className={styles.nameInfo}>
+                <div className={styles.name}>{item.f_name}</div>
+              </div>
             </div>
           ))}
         </div>
