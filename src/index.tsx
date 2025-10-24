@@ -1,7 +1,8 @@
 import React, { useEffect, useState } from "react";
 import ReactDOM from "react-dom/client";
 import { bitable, FieldType, ITextField } from "@lark-base-open/js-sdk";
-import { Button, Select, message, Checkbox, Pagination, Tooltip } from "antd";
+import { Button, Select, message, Checkbox, Pagination, Tooltip, Modal } from "antd";
+
 import styles from "./index.module.css";
 import { CloseOutlined, PlayCircleOutlined } from "@ant-design/icons";
 function LoadApp() {
@@ -17,7 +18,8 @@ function LoadApp() {
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(10);
   const [total, setTotal] = useState(0);
-
+  const [previewVisible, setPreviewVisible] = useState(false);
+  const [previewContent, setPreviewContent] = useState<{ type: "video" | "image"; url: string, name: string } | null>(null);
   useEffect(() => {
     const init = async () => {
       try {
@@ -160,6 +162,12 @@ function LoadApp() {
   const handlePlayVideo = (item: any) => {
     window.open(item.f_path, "_blank");
   };
+  const handlePreview = (item: any) => {
+    const isVideo = item.f_name?.endsWith(".mp4") || item.f_path?.endsWith(".mov"); // 简单判断视频类型
+
+    setPreviewContent({ type: isVideo ? "video" : "image", url: item.f_path, name: item.f_name });
+    setPreviewVisible(true);
+  };
   // 新增方法
   const handleWriteSelectedToTable = async () => {
     if (selectedIds.size === 0) {
@@ -230,13 +238,13 @@ function LoadApp() {
                   }}
                 />
                 <img src={item.f_thumbnail} alt={item.f_name} className={styles.img} />
-      
-                  <PlayCircleOutlined
-                    className={styles.playIcon}
-                    onClick={() => handlePlayVideo(item)}
-                   
-                  />
-             
+
+                <PlayCircleOutlined
+                  className={styles.playIcon}
+                  onClick={() => handlePreview(item)}
+
+                />
+
                 <div className={styles.nameInfo}>
                   <Tooltip title={item.f_name}>
                     <div className={styles.name}>
@@ -272,6 +280,35 @@ function LoadApp() {
           </Button>
         </div>
       )}
+      <Modal
+        open={previewVisible}      // 使用 open 替代 visible
+        footer={null}
+        title={
+          <Tooltip title={previewContent?.name}>
+            <div
+              style={{
+                maxWidth: 280,
+                overflow: "hidden",
+                textOverflow: "ellipsis",
+                whiteSpace: "nowrap",
+              }}
+            >
+              {previewContent?.name || "未知文件名"}
+            </div>
+          </Tooltip>
+        }
+        onCancel={() => setPreviewVisible(false)}
+        width={360}
+      >
+        <div style={{ paddingTop: '30px' }}>
+          {previewContent?.type === "video" ? (
+            <video src={previewContent.url} controls width="100%" height="450px" onError={() => message.error("视频无法播放，请检查链接或格式")} />
+          ) : (
+            <img src={previewContent?.url} alt="preview" style={{ width: "100%", height: '400px', objectFit: 'contain' }} />
+          )}
+        </div>
+      </Modal>
+
     </div>
   );
 }
