@@ -2,71 +2,9 @@ import React, { useEffect, useState } from "react";
 import ReactDOM from "react-dom/client";
 import { bitable, FieldType, ITextField } from "@lark-base-open/js-sdk";
 import { Button, Select, message, Checkbox, Pagination } from "antd";
-
+import styles from "./index.module.css";
 // ====== 样式对象 ======
-const styles = {
-  container: {
-    display: "flex",
-    flexDirection: "column" as const,
-    height: "100vh",
-    boxSizing: "border-box" as const,
-    padding: 20,
-  },
-  selectWrapper: {
-    marginBottom: 25,
-    display: "flex",
-    gap: 20,
-    alignItems: "center",
-  },
-  scrollArea: {
-    flex: 1,
-    overflowY: "auto" as const,
-  },
-  gridContainer: {
-    display: "grid",
-    gridTemplateColumns: "repeat(auto-fill, minmax(160px, 1fr))",
-    gap: 12,
-  },
-  card: {
-    border: "1px solid #e8e8e8",
-    borderRadius: 8,
-    padding: 8,
-    display: "flex",
-    flexDirection: "column" as const,
-    alignItems: "center",
-    position: "relative" as const,
-    backgroundColor: "#fff",
-  },
-  img: {
-    width: "100%",
-    height: 100,
-    objectFit: "cover" as const,
-    borderRadius: 4,
-    marginBottom: 8,
-  },
-  checkbox: {
-    position: "absolute" as const,
-    top: 8,
-    left: 8,
-    zIndex: 1,
-  },
-  playIcon: {
-    fontSize: 24,
-    color: "#1890ff",
-    cursor: "pointer",
-    marginBottom: 8,
-  },
-  nameInfo: {
-    textAlign: "center" as const,
-    wordBreak: "break-word" as const,
-  },
-  footer: {
-    display: "flex",
-    gap: 20,
-    marginTop: 10,
-    flexShrink: 0,
-  },
-};
+
 
 function LoadApp() {
   const [info, setInfo] = useState("正在获取表格信息，请稍候...");
@@ -233,97 +171,98 @@ function LoadApp() {
     window.open(videoUrl, "_blank");
   };
 
-  return (
-    <div style={styles.container}>
-      {/* 选择账户 */}
-      {fieldValues.length > 0 && (
-        <div style={styles.selectWrapper}>
-          <div>选择账户</div>
-          <Select
-            style={{ width: 220 }}
-            options={fieldValues}
-            value={selectedValue}
-            placeholder="请选择一个账户"
-            onChange={(value) => {
-              setSelectedValue(value);
-              handleCallAPI(1, pageSize, value, selectFieldId);
-            }}
-            getPopupContainer={(triggerNode) => triggerNode.parentElement!}
-          />
-        </div>
-      )}
+return (
+  <div className={styles.container}>
+    {/* 选择账户 */}
+    {fieldValues.length > 0 && (
+      <div className={styles.selectWrapper}>
+        <div>选择账户</div>
+        <Select
+          style={{ width: 220 }}
+          options={fieldValues}
+          value={selectedValue}
+          placeholder="请选择一个账户"
+          onChange={(value) => {
+            setSelectedValue(value);
+            handleCallAPI(1, pageSize, value, selectFieldId);
+          }}
+          getPopupContainer={(triggerNode) => triggerNode.parentElement!}
+        />
+      </div>
+    )}
 
-      {/* 网格卡片展示 */}
-      {apiDataList.length > 0 && (
-        <div style={styles.scrollArea}>
-          <div style={styles.gridContainer}>
-            {apiDataList.map((item) => (
-              <div key={item.back_key_id} style={styles.card}>
-                <Checkbox
-                  style={styles.checkbox}
-                  checked={selectedIds.includes(item.f_name)}
-                  onChange={(e) => {
-                    const checked = e.target.checked;
-                    setSelectedIds((prev) => {
-                      if (checked) return [...prev, item.f_name];
-                      else return prev.filter((name) => name !== item.f_name);
-                    });
-                  }}
-                />
-                <img
-                  src={item.f_thumbnail}
-                  alt={item.f_name}
-                  style={styles.img}
-                />
-                <div
-                  style={{ fontSize: 24, cursor: "pointer" }}
-                  onClick={() => handlePlayVideo(item.avatar_video)}
-                >
-                  ▶️
-                </div>
-                <div style={styles.nameInfo}>{item.f_name}</div>
+    {/* 网格卡片展示 */}
+    {apiDataList.length > 0 && (
+      <div className={styles.scrollArea}>
+        <div className={styles.gridContainer}>
+          {apiDataList.map((item) => (
+            <div key={item.back_key_id} className={styles.card}>
+              <Checkbox
+                className={styles.checkbox}
+                checked={selectedIds.includes(item.f_name)}
+                onChange={(e) => {
+                  const checked = e.target.checked;
+                  setSelectedIds((prev) => {
+                    if (checked) return [...prev, item.f_name];
+                    else return prev.filter((name) => name !== item.f_name);
+                  });
+                }}
+              />
+              <img
+                src={item.f_thumbnail}
+                alt={item.f_name}
+                className={styles.img}
+              />
+              <div
+                className={styles.playIcon}
+                onClick={() => handlePlayVideo(item.avatar_video)}
+              >
+                ▶️
               </div>
-            ))}
-          </div>
+              <div className={styles.nameInfo}>{item.f_name}</div>
+            </div>
+          ))}
         </div>
-      )}
+      </div>
+    )}
 
-      {/* 底部固定区域 */}
-      {apiDataList.length > 0 && (
-        <div style={styles.footer}>
-          <Pagination
-            current={page}
-            pageSize={pageSize}
-            total={total}
-            pageSizeOptions={[10, 20, 50]}
-            showSizeChanger
-            onChange={(pageNum, newPageSize) => {
-              if (newPageSize !== pageSize) {
-                handlePageSizeChange(pageNum, newPageSize);
-              } else {
-                handlePageChange(pageNum);
-              }
-            }}
-          />
-          <Button
-            type="primary"
-            onClick={() => {
-              if (selectedIds.length === 0) {
-                message.warning("请至少选择一项");
-                return;
-              }
-              const selectedItems = apiDataList.filter((item) =>
-                selectedIds.includes(item.f_name)
-              );
-              writeToTable(selectedItems);
-            }}
-          >
-            写入选中数据到表格
-          </Button>
-        </div>
-      )}
-    </div>
-  );
+    {/* 底部固定区域 */}
+    {apiDataList.length > 0 && (
+      <div className={styles.footer}>
+        <Pagination
+          current={page}
+          pageSize={pageSize}
+          total={total}
+          pageSizeOptions={[10, 20, 50]}
+          showSizeChanger
+          onChange={(pageNum, newPageSize) => {
+            if (newPageSize !== pageSize) {
+              handlePageSizeChange(pageNum, newPageSize);
+            } else {
+              handlePageChange(pageNum);
+            }
+          }}
+        />
+        <Button
+          type="primary"
+          onClick={() => {
+            if (selectedIds.length === 0) {
+              message.warning("请至少选择一项");
+              return;
+            }
+            const selectedItems = apiDataList.filter((item) =>
+              selectedIds.includes(item.f_name)
+            );
+            writeToTable(selectedItems);
+          }}
+        >
+          写入选中数据到表格
+        </Button>
+      </div>
+    )}
+  </div>
+);
+
 }
 
 ReactDOM.createRoot(document.getElementById("root") as HTMLElement).render(
