@@ -196,7 +196,7 @@ function LoadApp() {
                 type="primary"
 
               >
-                已经选择{selectedIds.size} 个素材
+                选{selectedIds.size}个素材
                 <CloseOutlined
                   style={{ marginLeft: 8 }}
                   onClick={(e) => {
