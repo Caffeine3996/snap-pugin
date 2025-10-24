@@ -21,6 +21,10 @@ function LoadApp() {
   const [previewVisible, setPreviewVisible] = useState(false);
   const [previewContent, setPreviewContent] = useState<{ type: "video" | "image"; url: string, name: string } | null>(null);
   const [keyword, setKeyword] = useState<string>("");
+  const [targetFieldId, setTargetFieldId] = useState<string>();
+  const [recordList, setRecordList] = useState<{ id: string; name: string }[]>([]);
+  const [selectedRecordId, setSelectedRecordId] = useState<string>();
+
   useEffect(() => {
     const init = async () => {
       try {
@@ -51,6 +55,24 @@ function LoadApp() {
           const uniqueValues = Array.from(new Set(values)).sort();
           const options = uniqueValues.map((v) => ({ label: v, value: v }));
           setFieldValues(options);
+
+          const adIdField = fields.find(f => f.name === "广告账户"); // 找到广告ID字段
+          const adIdFieldId = adIdField?.id;
+
+          const recordOptions: { id: string; name: string }[] = [];
+
+          for (const id of recordIds) {
+            const record = await table.getRecordById(id);
+            if (record) {
+              const adIdValue = adIdFieldId ? record.fields[adIdFieldId]?.[0]?.text : undefined;
+              recordOptions.push({
+                id,
+                name: adIdValue || `记录 ${id}`, // 如果广告ID有值就显示，没有就显示默认
+              });
+            }
+          }
+          setRecordList(recordOptions);
+          if (recordOptions.length > 0) setSelectedRecordId(recordOptions[0].id);
 
           if (options.length > 0) {
             setSelectedValue(options[0].value);
@@ -102,10 +124,15 @@ function LoadApp() {
     try {
       const table = await bitable.base.getActiveTable();
       const fields = await table.getFieldMetaList();
-      const targetField = fields.find((f) => f.name === "Ad Creative Media File");
 
+      if (!targetFieldId) {
+        message.error("请先选择要写入的列");
+        return;
+      }
+
+      const targetField = fields.find((f) => f.id === targetFieldId);
       if (!targetField) {
-        message.error("未找到列：Ad Creative Media File");
+        message.error("未找到目标列");
         return;
       }
 
@@ -140,7 +167,7 @@ function LoadApp() {
       const fieldData = sourceRecord.fields || {};
       const newRecords = items.map((item) => {
         const newFields: any = { ...fieldData };
-        newFields[targetField.id] = [{ type: "text", text: item.f_name }];
+        newFields[targetFieldId] = [{ type: "text", text: item.f_name }];
         return { fields: newFields };
       });
 
@@ -151,6 +178,7 @@ function LoadApp() {
       message.error("创建新记录失败");
     }
   };
+
 
   const handlePageChange = (newPage: number) => {
     handleCallAPI(newPage, pageSize);
@@ -213,9 +241,36 @@ function LoadApp() {
             value={keyword}
             allowClear
             onChange={(e) => setKeyword(e.target.value)}
-            style={{ width: 200,}}
+            style={{ width: 200, }}
           />
 
+
+          <Select
+            style={{ width: 220 }}
+            showSearch
+            placeholder="选择源记录"
+            value={selectedRecordId}
+            onChange={(value) => setSelectedRecordId(value)}
+            options={recordList.map((r) => ({
+              label: r.name,
+              value: r.id,
+            }))}
+            getPopupContainer={(triggerNode) => triggerNode.parentElement!}
+          />
+
+          {/* 新增：目标列选择 */}
+          <Select
+            showSearch
+            style={{ width: 220 }}
+            placeholder="请选择写入列"
+            value={targetFieldId}
+            onChange={(value) => setTargetFieldId(value)}
+            options={fieldMetaList.map((f) => ({
+              label: f.name,
+              value: f.id,
+            }))}
+            getPopupContainer={(triggerNode) => triggerNode.parentElement!}
+          />
 
           {/* 只有有选中素材才显示 */}
           {selectedIds.size > 0 && (
@@ -235,6 +290,9 @@ function LoadApp() {
               </Button>
             </div>
           )}
+
+
+
         </div>
       )}
 
