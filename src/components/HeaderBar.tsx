@@ -28,7 +28,7 @@ export default function HeaderBar({
         value={keyword}
         onChange={(e) => onKeywordChange(e.target.value)}
       />
-      <SettingOutlined style={{ fontSize: 16, cursor: "pointer" }} onClick={onSettingsClick} />
+      <SettingOutlined style={{ fontSize: 16, cursor: "pointer",position:'absolute',top:'6px',right:'6px' }} onClick={onSettingsClick} />
       {selectedCount > 0 && (
         <Button type="primary">
           已选 {selectedCount}
