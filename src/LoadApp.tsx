@@ -47,6 +47,7 @@ function LoadApp() {
   const [settingsVisible, setSettingsVisible] = useState<boolean>(false);
   const [tempRecordId, setTempRecordId] = useState<string | undefined>();
   const [tempTargetFieldId, setTempTargetFieldId] = useState<string | undefined>();
+  const [operationMode, setOperationMode] = useState<"add" | "overwrite" | "fillEmpty">("add");
 
   /** 安全获取字段文本 **/
   const getCellText = (cell: any): string => {
@@ -141,6 +142,7 @@ function LoadApp() {
       const field = await table.getField<ITextField>(selectFieldId!);
       const recordIds = await table.getRecordIdList();
 
+      // 获取源记录（用于复制其他字段）
       let sourceRecordId: string | undefined;
       for (const id of recordIds) {
         const val = await field.getValue(id);
@@ -153,18 +155,48 @@ function LoadApp() {
 
       const sourceRecord = await table.getRecordById(sourceRecordId);
       const fieldData = sourceRecord.fields || {};
-      const newRecords: IRecordValue[] = items.map((i) => {
-        const fields: Record<string, any> = {};
-        for (const key in fieldData) {
-          const value = fieldData[key];
-          fields[key] = typeof value === "string" ? { type: "text", text: value } : value;
-        }
-        fields[targetFieldId!] = { type: "text", text: i.f_name };
-        return { fields };
-      });
 
-      await table.addRecords(newRecords);
-      message.success(`已创建 ${newRecords.length} 条记录`);
+      if (operationMode === "add") {
+        // 新增模式
+        const newRecords: IRecordValue[] = items.map((i) => {
+          const fields: Record<string, any> = {};
+          for (const key in fieldData) {
+            const value = fieldData[key];
+            fields[key] = typeof value === "string" ? { type: "text", text: value } : value;
+          }
+          fields[targetFieldId!] = { type: "text", text: i.f_name };
+          return { fields };
+        });
+        await table.addRecords(newRecords);
+        message.success(`已创建 ${newRecords.length} 条记录`);
+      } else if (operationMode === "overwrite") {
+        // 聚焦覆盖
+        if (!selectedRecordId) return message.warning("请选择需要覆盖的记录");
+        const record = await table.getRecordById(selectedRecordId);
+        const updatedFields = {
+          ...record.fields,
+          [targetFieldId!]: { type: "text", text: items[0].f_name },
+        };
+        // 类型断言解决 TS 报错
+        await (table as any).updateRecords([{ id: selectedRecordId, fields: updatedFields }]);
+        message.success("已覆盖选中记录内容");
+      } else if (operationMode === "fillEmpty") {
+        // 空白补全
+        const updates: { id: string; fields: Record<string, any> }[] = [];
+        for (const id of recordIds) {
+          const record = await table.getRecordById(id);
+          const value = record.fields[targetFieldId!];
+          const text = getCellText(value);
+          if (!text) {
+            updates.push({
+              id,
+              fields: { [targetFieldId!]: { type: "text", text: items[0].f_name } },
+            });
+          }
+        }
+        if (updates.length > 0) await (table as any).updateRecords(updates);
+        message.success("已补全空白内容");
+      }
     } catch (err) {
       console.error(err);
       message.error("写入失败");
@@ -186,6 +218,8 @@ function LoadApp() {
         selectedValue={selectedValue || ""}
         keyword={keyword}
         selectedCount={selectedIds.size}
+        operationMode={operationMode}
+        onOperationModeChange={setOperationMode}
         onAccountChange={(v: string) => {
           setSelectedValue(v);
           handleCallAPI(1, pageSize, v, selectFieldId!);
