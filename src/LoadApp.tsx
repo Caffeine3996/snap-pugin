@@ -212,7 +212,7 @@ function LoadApp() {
         }
       } else if (operationMode === "fillEmpty") {
         try {
-          // 获取表格聚焦单元格
+          // 获取聚焦单元格（用于确定操作列）
           const selection = await bitable.base.getSelection();
           if (!selection) {
             message.error("请先在表格中选中一个单元格");
@@ -228,19 +228,20 @@ function LoadApp() {
           const textField = await table.getField<ITextField>(targetFieldId);
           const recordIds = await table.getRecordIdList();
 
-          // 获取第一个选中的素材
-          const firstSelected = Array.from(selectedIds)[0];
-          if (!firstSelected) {
-            message.warning("请选择素材");
+          // 获取选中的素材列表
+          const selectedArray = Array.from(selectedIds);
+          if (selectedArray.length === 0) {
+            message.warning("请选择至少一个素材");
             return;
           }
 
           let filledCount = 0;
+          let materialIndex = 0;
 
           for (const recordId of recordIds) {
             const currentValue = await textField.getValue(recordId);
 
-            // 如果为空，才进行填充
+            // 判断是否为空
             const isEmpty =
               currentValue === null ||
               currentValue === undefined ||
@@ -248,17 +249,22 @@ function LoadApp() {
               (Array.isArray(currentValue) && currentValue[0]?.text === "");
 
             if (isEmpty) {
-              await textField.setValue(recordId, firstSelected);
+              // 依次取素材，循环使用
+              const currentMaterial = selectedArray[materialIndex % selectedArray.length];
+              await textField.setValue(recordId, currentMaterial);
+
+              materialIndex++;
               filledCount++;
             }
           }
 
-          message.success(`已填充 ${filledCount} 条空白记录`);
+          message.success(`已依次填充 ${filledCount} 条空白记录`);
         } catch (err) {
           console.error(err);
           message.error("写入失败");
         }
       }
+
 
     } catch (err) {
       console.error(err);
