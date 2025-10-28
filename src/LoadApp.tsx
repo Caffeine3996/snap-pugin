@@ -137,7 +137,7 @@ function LoadApp() {
   const writeToTable = async (items: { f_name: string }[]) => {
     try {
       const table = await bitable.base.getActiveTable();
-      if (operationMode !== "overwrite" && !targetFieldId) {
+      if (operationMode === "add" && !targetFieldId) {
         return message.error("请选择写入列");
       }
 
@@ -211,22 +211,55 @@ function LoadApp() {
           message.error("写入失败");
         }
       } else if (operationMode === "fillEmpty") {
-        // 空白补全
-        const updates: { id: string; fields: Record<string, any> }[] = [];
-        for (const id of recordIds) {
-          const record = await table.getRecordById(id);
-          const value = record.fields[targetFieldId!];
-          const text = getCellText(value);
-          if (!text) {
-            updates.push({
-              id,
-              fields: { [targetFieldId!]: { type: "text", text: items[0].f_name } },
-            });
+        try {
+          // 获取表格聚焦单元格
+          const selection = await bitable.base.getSelection();
+          if (!selection) {
+            message.error("请先在表格中选中一个单元格");
+            return;
           }
+
+          const targetFieldId = selection.fieldId;
+          if (!targetFieldId) {
+            message.error("请先在表格中选中一个单元格所在列");
+            return;
+          }
+
+          const textField = await table.getField<ITextField>(targetFieldId);
+          const recordIds = await table.getRecordIdList();
+
+          // 获取第一个选中的素材
+          const firstSelected = Array.from(selectedIds)[0];
+          if (!firstSelected) {
+            message.warning("请选择素材");
+            return;
+          }
+
+          let filledCount = 0;
+
+          for (const recordId of recordIds) {
+            const currentValue = await textField.getValue(recordId);
+
+            // 如果为空，才进行填充
+            const isEmpty =
+              currentValue === null ||
+              currentValue === undefined ||
+              (Array.isArray(currentValue) && currentValue.length === 0) ||
+              (Array.isArray(currentValue) && currentValue[0]?.text === "");
+
+            if (isEmpty) {
+              await textField.setValue(recordId, firstSelected);
+              filledCount++;
+            }
+          }
+
+          message.success(`已填充 ${filledCount} 条空白记录`);
+        } catch (err) {
+          console.error(err);
+          message.error("写入失败");
         }
-        if (updates.length > 0) await (table as any).updateRecords(updates);
-        message.success("已补全空白内容");
       }
+
     } catch (err) {
       console.error(err);
       message.error("写入失败");
