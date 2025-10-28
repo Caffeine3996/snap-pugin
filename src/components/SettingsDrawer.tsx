@@ -40,7 +40,7 @@ export default function SettingsDrawer({
 
   return (
     <Drawer
-      title="选择源记录与写入列"
+      title="配置"
       placement="right"
       width={360}
       onClose={onClose}
