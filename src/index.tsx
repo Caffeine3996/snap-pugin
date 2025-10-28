@@ -80,14 +80,28 @@ function LoadApp() {
           const recordOptions: { id: string; name: string }[] = [];
           for (const id of recordIds) {
             const record = await table.getRecordById(id);
-            if (record) {
-              const adIdValue = adIdFieldId ? record.fields[adIdFieldId]?.[0]?.text : undefined;
-              recordOptions.push({
-                id,
-                name: adIdValue || `记录 ${id}`,
-              });
+            if (!record) continue;
+
+            const fieldValue = adIdFieldId ? record.fields[adIdFieldId] : undefined;
+
+            let adIdValue: string | undefined;
+
+            if (typeof fieldValue === "string") {
+              // 单行文本
+              adIdValue = fieldValue;
+            } else if (Array.isArray(fieldValue)) {
+              // 有些类型返回数组（例如单选、多选、关联等）
+              const first = fieldValue[0] as any;
+              adIdValue = typeof first?.text === "string" ? first.text : undefined;
             }
+
+            recordOptions.push({
+              id,
+              name: adIdValue || `记录 ${id}`,
+            });
           }
+
+
           setRecordList(recordOptions);
           if (recordOptions.length > 0) setSelectedRecordId(recordOptions[0].id);
 
@@ -117,7 +131,9 @@ function LoadApp() {
     }
 
     try {
-      const url = `api/feishu_interface/feishu_media.php?customerId=${accountValue}&page=${pageNum}&pageSize=${pageSizeNum}&name=${encodeURIComponent(keywordValue)}`;
+      // const url = `api/feishu_interface/feishu_media.php?customerId=${accountValue}&page=${pageNum}&pageSize=${pageSizeNum}&name=${encodeURIComponent(keywordValue)}`;
+      const url = `https://new.inmad.cn/feishu_interface/feishu_media.php?customerId=${accountValue}&page=${pageNum}&pageSize=${pageSizeNum}&name=${encodeURIComponent(keywordValue)}`;
+      
       const res = await fetch(url);
       const data = await res.json();
 
@@ -254,7 +270,7 @@ function LoadApp() {
             style={{ width: 200 }}
           />
           <SettingOutlined
-            style={{ fontSize: 16,  cursor: "pointer" }}
+            style={{ fontSize: 16, cursor: "pointer" }}
             onClick={() => {
               setTempRecordId(selectedRecordId);
               setTempTargetFieldId(targetFieldId);
