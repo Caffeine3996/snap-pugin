@@ -137,7 +137,10 @@ function LoadApp() {
   const writeToTable = async (items: { f_name: string }[]) => {
     try {
       const table = await bitable.base.getActiveTable();
-      if (!targetFieldId) return message.error("请选择写入列");
+      if (operationMode !== "overwrite" && !targetFieldId) {
+        return message.error("请选择写入列");
+      }
+
 
       const field = await table.getField<ITextField>(selectFieldId!);
       const recordIds = await table.getRecordIdList();
@@ -170,16 +173,43 @@ function LoadApp() {
         await table.addRecords(newRecords);
         message.success(`已创建 ${newRecords.length} 条记录`);
       } else if (operationMode === "overwrite") {
-        // 聚焦覆盖
-        if (!selectedRecordId) return message.warning("请选择需要覆盖的记录");
-        const record = await table.getRecordById(selectedRecordId);
-        const updatedFields = {
-          ...record.fields,
-          [targetFieldId!]: { type: "text", text: items[0].f_name },
-        };
-        // 类型断言解决 TS 报错
-        await (table as any).updateRecords([{ id: selectedRecordId, fields: updatedFields }]);
-        message.success("已覆盖选中记录内容");
+        try {
+          // 获取表格聚焦单元格
+          const selection = await bitable.base.getSelection();
+          if (!selection) {
+            message.error("请先在表格中选中一个单元格");
+            return;
+          }
+          let targetFieldId = selection.fieldId ?? undefined;
+          let targetRecordId = selection.recordId ?? undefined;
+
+          // 更新表格
+          if (!targetFieldId) {
+            message.error("请先在表格中选中一个单元格");
+            // message.error("请选择目标字段");
+            return;
+          }
+          const textField = await table.getField<ITextField>(targetFieldId);
+
+          if (targetRecordId) {
+            // 获取第一个选中的素材
+            const firstSelected = Array.from(selectedIds)[0];
+            if (!firstSelected) {
+              message.warning("请选择素材");
+              return;
+            }
+
+            await textField.setValue(targetRecordId, firstSelected);
+            message.success("已覆盖选中素材");
+
+          } else {
+            message.error("请先在表格中选中一个单元格");
+            return;
+          }
+        } catch (err) {
+          console.error(err);
+          message.error("写入失败");
+        }
       } else if (operationMode === "fillEmpty") {
         // 空白补全
         const updates: { id: string; fields: Record<string, any> }[] = [];
