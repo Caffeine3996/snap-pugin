@@ -137,140 +137,119 @@ function LoadApp() {
   const writeToTable = async (items: { f_name: string }[]) => {
     try {
       const table = await bitable.base.getActiveTable();
-      if (operationMode === "add" && !targetFieldId) {
-        return message.error("请选择写入列");
-      }
 
-
-      const field = await table.getField<ITextField>(selectFieldId!);
-      const recordIds = await table.getRecordIdList();
-
-      // 获取源记录（用于复制其他字段）
-      let sourceRecordId: string | undefined;
-      for (const id of recordIds) {
-        const val = await field.getValue(id);
-        if (Array.isArray(val) && val[0]?.text === selectedValue) {
-          sourceRecordId = id;
+      switch (operationMode) {
+        case "add":
+          await handleAddMode(table, items);
           break;
-        }
+        case "overwrite":
+          await handleOverwriteMode(table);
+          break;
+        case "fillEmpty":
+          await handleFillEmptyMode(table);
+          break;
+        default:
+          message.error("未知的操作模式");
       }
-      if (!sourceRecordId) return message.warning("未找到源记录");
-
-      const sourceRecord = await table.getRecordById(sourceRecordId);
-      const fieldData = sourceRecord.fields || {};
-
-      if (operationMode === "add") {
-        // 新增模式
-        const newRecords: IRecordValue[] = items.map((i) => {
-          const fields: Record<string, any> = {};
-          for (const key in fieldData) {
-            const value = fieldData[key];
-            fields[key] = typeof value === "string" ? { type: "text", text: value } : value;
-          }
-          fields[targetFieldId!] = { type: "text", text: i.f_name };
-          return { fields };
-        });
-        await table.addRecords(newRecords);
-        message.success(`已创建 ${newRecords.length} 条记录`);
-      } else if (operationMode === "overwrite") {
-        try {
-          // 获取表格聚焦单元格
-          const selection = await bitable.base.getSelection();
-          if (!selection) {
-            message.error("请先在表格中选中一个单元格");
-            return;
-          }
-          let targetFieldId = selection.fieldId ?? undefined;
-          let targetRecordId = selection.recordId ?? undefined;
-
-          // 更新表格
-          if (!targetFieldId) {
-            message.error("请先在表格中选中一个单元格");
-            // message.error("请选择目标字段");
-            return;
-          }
-          const textField = await table.getField<ITextField>(targetFieldId);
-
-          if (targetRecordId) {
-            // 获取第一个选中的素材
-            const firstSelected = Array.from(selectedIds)[0];
-            if (!firstSelected) {
-              message.warning("请选择素材");
-              return;
-            }
-
-            await textField.setValue(targetRecordId, firstSelected);
-            message.success("已覆盖选中素材");
-
-          } else {
-            message.error("请先在表格中选中一个单元格");
-            return;
-          }
-        } catch (err) {
-          console.error(err);
-          message.error("写入失败");
-        }
-      } else if (operationMode === "fillEmpty") {
-        try {
-          // 获取聚焦单元格（用于确定操作列）
-          const selection = await bitable.base.getSelection();
-          if (!selection) {
-            message.error("请先在表格中选中一个单元格");
-            return;
-          }
-
-          const targetFieldId = selection.fieldId;
-          if (!targetFieldId) {
-            message.error("请先在表格中选中一个单元格所在列");
-            return;
-          }
-
-          const textField = await table.getField<ITextField>(targetFieldId);
-          const recordIds = await table.getRecordIdList();
-
-          // 获取选中的素材列表
-          const selectedArray = Array.from(selectedIds);
-          if (selectedArray.length === 0) {
-            message.warning("请选择至少一个素材");
-            return;
-          }
-
-          let filledCount = 0;
-          let materialIndex = 0;
-
-          for (const recordId of recordIds) {
-            const currentValue = await textField.getValue(recordId);
-
-            // 判断是否为空
-            const isEmpty =
-              currentValue === null ||
-              currentValue === undefined ||
-              (Array.isArray(currentValue) && currentValue.length === 0) ||
-              (Array.isArray(currentValue) && currentValue[0]?.text === "");
-
-            if (isEmpty) {
-              // 依次取素材，循环使用
-              const currentMaterial = selectedArray[materialIndex % selectedArray.length];
-              await textField.setValue(recordId, currentMaterial);
-
-              materialIndex++;
-              filledCount++;
-            }
-          }
-
-          message.success(`已依次填充 ${filledCount} 条空白记录`);
-        } catch (err) {
-          console.error(err);
-          message.error("写入失败");
-        }
-      }
-
-
     } catch (err) {
       console.error(err);
       message.error("写入失败");
     }
   };
+
+  /** ========== 各模式实现 ========== **/
+
+  // Add 模式：复制源记录并新增
+  const handleAddMode = async (table: any, items: { f_name: string }[]) => {
+    if (!targetFieldId) return message.error("请选择写入列");
+
+    const field = await table.getField(selectFieldId!);
+    const recordIds = await table.getRecordIdList();
+    if (!selectedValue) {
+      message.error("请先选择一个源值");
+      return;
+    }
+
+    const sourceRecordId = await findSourceRecordId(table, field, selectedValue);
+    if (!sourceRecordId) return message.warning("未找到源记录");
+
+    const sourceRecord = await table.getRecordById(sourceRecordId);
+    const fieldData = sourceRecord.fields || {};
+
+    const newRecords: IRecordValue[] = items.map((i) => {
+      const fields: Record<string, any> = {};
+      for (const key in fieldData) {
+        const value = fieldData[key];
+        fields[key] = typeof value === "string" ? { type: "text", text: value } : value;
+      }
+      fields[targetFieldId!] = { type: "text", text: i.f_name };
+      return { fields };
+    });
+
+    await table.addRecords(newRecords);
+    message.success(`已创建 ${newRecords.length} 条记录`);
+  };
+
+  // Overwrite 模式：覆盖选中单元格
+  const handleOverwriteMode = async (table: any) => {
+    const selection = await bitable.base.getSelection();
+    if (!selection?.fieldId || !selection?.recordId) {
+      return message.error("请先在表格中选中一个单元格");
+    }
+
+    const textField = await table.getField(selection.fieldId);
+    const firstSelected = Array.from(selectedIds)[0];
+    if (!firstSelected) return message.warning("请选择素材");
+
+    await textField.setValue(selection.recordId, firstSelected);
+    message.success("已覆盖选中素材");
+  };
+
+  // FillEmpty 模式：填充空白单元格
+  const handleFillEmptyMode = async (table: any) => {
+    const selection = await bitable.base.getSelection();
+    if (!selection?.fieldId) {
+      return message.error("请先选中一个单元格所在列");
+    }
+
+    const textField = await table.getField(selection.fieldId);
+    const recordIds = await table.getRecordIdList();
+    const selectedArray = Array.from(selectedIds);
+    if (selectedArray.length === 0) return message.warning("请选择至少一个素材");
+
+    let filledCount = 0;
+    let index = 0;
+
+    for (const recordId of recordIds) {
+      const currentValue = await textField.getValue(recordId);
+      const isEmpty =
+        !currentValue ||
+        (Array.isArray(currentValue) && (!currentValue.length || !currentValue[0]?.text));
+
+      if (isEmpty) {
+        const currentMaterial = selectedArray[index % selectedArray.length];
+        await textField.setValue(recordId, currentMaterial);
+        filledCount++;
+        index++;
+      }
+    }
+
+    message.success(`已依次填充 ${filledCount} 条空白记录`);
+  };
+
+  // 辅助函数
+  const findSourceRecordId = async (table: any, field: ITextField, selectedValue: string) => {
+    const recordIds = await table.getRecordIdList();
+    for (const id of recordIds) {
+      const val = await field.getValue(id);
+      if (Array.isArray(val) && val[0]?.text === selectedValue) {
+        return id;
+      }
+    }
+    return undefined;
+  };
+
+
 
   /** 关键字防抖搜索 **/
   useEffect(() => {
