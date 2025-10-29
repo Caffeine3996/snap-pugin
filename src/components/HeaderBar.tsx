@@ -34,7 +34,7 @@ export default function HeaderBar({
       />
 
       <SettingOutlined
-        style={{ fontSize: 16, cursor: "pointer" }}
+        style={{ fontSize: 16, cursor: "pointer",position:'absolute',top:'6px',right:'6px' }}
         onClick={onSettingsClick}
       />
 

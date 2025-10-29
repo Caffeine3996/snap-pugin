@@ -61,6 +61,17 @@ export default function SettingsDrawer({
       }
     >
       <Form layout="horizontal" colon={false}>
+        {/* ✅ 新增：操作模式选择 */}
+        <Form.Item label="操作模式">
+          <Radio.Group
+            value={operationMode}
+            onChange={(e) => setOperationMode(e.target.value)}
+          >
+            <Radio value="add">新增</Radio>
+            <Radio value="overwrite">聚焦覆盖</Radio>
+            <Radio value="fillEmpty">空白补全</Radio>
+          </Radio.Group>
+        </Form.Item>
         <Form.Item label="源记录">
           <Select
             showSearch
@@ -81,17 +92,7 @@ export default function SettingsDrawer({
           />
         </Form.Item>
 
-        {/* ✅ 新增：操作模式选择 */}
-        <Form.Item label="操作模式">
-          <Radio.Group
-            value={operationMode}
-            onChange={(e) => setOperationMode(e.target.value)}
-          >
-            <Radio value="add">新增</Radio>
-            <Radio value="overwrite">聚焦覆盖</Radio>
-            <Radio value="fillEmpty">空白补全</Radio>
-          </Radio.Group>
-        </Form.Item>
+
       </Form>
     </Drawer>
   );
