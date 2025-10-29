@@ -60,6 +60,20 @@ function LoadApp() {
     }
     return String(cell ?? "");
   };
+  /** ✅ 1️⃣ 初始化时读取本地存储配置 **/
+  useEffect(() => {
+    const savedConfig = localStorage.getItem("mediaWriterConfig");
+    if (savedConfig) {
+      try {
+        const parsed = JSON.parse(savedConfig);
+        setSelectedRecordId(parsed.recordId);
+        setTargetFieldId(parsed.fieldId);
+        setOperationMode(parsed.operationMode || "add");
+      } catch (err) {
+        console.warn("读取本地配置失败：", err);
+      }
+    }
+  }, []);
 
   /** 初始化表格信息 **/
   useEffect(() => {
@@ -258,7 +272,35 @@ function LoadApp() {
     }, 500);
     return () => clearTimeout(timer);
   }, [keyword]);
+  /** ✅ 2️⃣ 点击确定时保存本地配置 **/
+  const handleConfirmSettings = (
+    recordId: string,
+    fieldId: string,
+    mode: "add" | "overwrite" | "fillEmpty"
+  ) => {
+    setSelectedRecordId(recordId);
+    setTargetFieldId(fieldId);
+    setOperationMode(mode);
+    setSettingsVisible(false);
 
+    // 保存配置到 localStorage
+    localStorage.setItem(
+      "mediaWriterConfig",
+      JSON.stringify({
+        recordId,
+        fieldId,
+        operationMode: mode,
+      })
+    );
+  };
+
+  /** 打开设置抽屉 **/
+  const handleOpenSettings = () => {
+    setTempRecordId(selectedRecordId);
+
+    setTempTargetFieldId(targetFieldId);
+    setSettingsVisible(true);
+  };
   return (
     <div className={styles.container}>
       <HeaderBar
@@ -271,11 +313,7 @@ function LoadApp() {
           handleCallAPI(1, pageSize, v, selectFieldId!);
         }}
         onKeywordChange={(v: string) => setKeyword(v)}
-        onSettingsClick={() => {
-          setTempRecordId(selectedRecordId);
-          setTempTargetFieldId(targetFieldId);
-          setSettingsVisible(true);
-        }}
+        onSettingsClick={handleOpenSettings}
         onClearSelected={() => setSelectedIds(new Set())}
       />
 
@@ -326,16 +364,7 @@ function LoadApp() {
         tempTargetFieldId={tempTargetFieldId}
         tempOperationMode={operationMode}
         onClose={() => setSettingsVisible(false)}
-        onConfirm={(
-          r: string | undefined,
-          f: string | undefined,
-          mode: "add" | "overwrite" | "fillEmpty"
-        ) => {
-          setSelectedRecordId(r);
-          setTargetFieldId(f);
-          setOperationMode(mode); // ✅ 保存模式
-          setSettingsVisible(false);
-        }}
+        onConfirm={handleConfirmSettings}
       />
 
 
