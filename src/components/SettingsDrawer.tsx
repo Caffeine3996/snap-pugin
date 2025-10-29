@@ -38,9 +38,14 @@ export default function SettingsDrawer({
 
   // ✅ 点击确定时才触发 onConfirm
   const handleConfirm = () => {
-    if (!recordId || !targetFieldId) return message.error("请选择源记录和写入列");
-    onConfirm(recordId, targetFieldId, operationMode);
+    // 仅当 operationMode 为 "add" 时校验必选项
+    if (operationMode === "add" && (!recordId || !targetFieldId)) {
+      return message.error("请选择源记录和写入列");
+    }
+    // 允许其他模式传 undefined，但仍安全传空字符串
+    onConfirm(recordId || "", targetFieldId || "", operationMode);
   };
+
 
   return (
     <Drawer
