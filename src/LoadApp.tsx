@@ -266,8 +266,6 @@ function LoadApp() {
         selectedValue={selectedValue || ""}
         keyword={keyword}
         selectedCount={selectedIds.size}
-        operationMode={operationMode}
-        onOperationModeChange={setOperationMode}
         onAccountChange={(v: string) => {
           setSelectedValue(v);
           handleCallAPI(1, pageSize, v, selectFieldId!);
@@ -326,13 +324,21 @@ function LoadApp() {
         fieldMetaList={fieldMetaList}
         tempRecordId={tempRecordId}
         tempTargetFieldId={tempTargetFieldId}
+        tempOperationMode={operationMode}
         onClose={() => setSettingsVisible(false)}
-        onConfirm={(r: string | undefined, f: string | undefined) => {
+        onConfirm={(
+          r: string | undefined,
+          f: string | undefined,
+          mode: "add" | "overwrite" | "fillEmpty"
+        ) => {
           setSelectedRecordId(r);
           setTargetFieldId(f);
+          setOperationMode(mode); // ✅ 保存模式
           setSettingsVisible(false);
         }}
       />
+
+
     </div>
   );
 }

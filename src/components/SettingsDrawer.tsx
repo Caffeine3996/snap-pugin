@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { Drawer, Form, Select, Button, message } from "antd";
+import { Drawer, Form, Select, Button, message, Radio } from "antd";
 
 interface Props {
   visible: boolean;
@@ -7,8 +7,9 @@ interface Props {
   fieldMetaList: { id: string; name: string }[];
   tempRecordId?: string;
   tempTargetFieldId?: string;
+  tempOperationMode?: "add" | "overwrite" | "fillEmpty"; // ✅ 新增
   onClose: () => void;
-  onConfirm: (recordId: string, fieldId: string) => void;
+  onConfirm: (recordId: string, fieldId: string, mode: "add" | "overwrite" | "fillEmpty") => void; // ✅ 新增参数
 }
 
 export default function SettingsDrawer({
@@ -17,32 +18,35 @@ export default function SettingsDrawer({
   fieldMetaList,
   tempRecordId,
   tempTargetFieldId,
+  tempOperationMode = "add", // 默认值
   onClose,
   onConfirm,
 }: Props) {
   // ✅ 内部状态，控制临时选择值
   const [recordId, setRecordId] = useState<string | undefined>(tempRecordId);
   const [targetFieldId, setTargetFieldId] = useState<string | undefined>(tempTargetFieldId);
+  const [operationMode, setOperationMode] = useState<"add" | "overwrite" | "fillEmpty">(tempOperationMode);
 
   // 当外部重新打开时同步初始值
   useEffect(() => {
     if (visible) {
       setRecordId(tempRecordId);
       setTargetFieldId(tempTargetFieldId);
+      setOperationMode(tempOperationMode);
     }
-  }, [visible, tempRecordId, tempTargetFieldId]);
+  }, [visible, tempRecordId, tempTargetFieldId, tempOperationMode]);
 
   // ✅ 点击确定时才触发 onConfirm
   const handleConfirm = () => {
-    if (!recordId || !targetFieldId)  return message.error("请选择源记录和写入列");
-    onConfirm(recordId, targetFieldId);
+    if (!recordId || !targetFieldId) return message.error("请选择源记录和写入列");
+    onConfirm(recordId, targetFieldId, operationMode);
   };
 
   return (
     <Drawer
-      title="配置"
+      title="设置"
       placement="right"
-      width={360}
+      width={380}
       onClose={onClose}
       open={visible}
       footer={
@@ -63,7 +67,7 @@ export default function SettingsDrawer({
             placeholder="请选择源记录"
             value={recordId}
             options={recordList.map((r) => ({ label: r.name, value: r.id }))}
-            onChange={setRecordId} // ✅ 只更新状态，不触发提交
+            onChange={setRecordId}
           />
         </Form.Item>
 
@@ -73,8 +77,20 @@ export default function SettingsDrawer({
             placeholder="请选择写入列"
             value={targetFieldId}
             options={fieldMetaList.map((f) => ({ label: f.name, value: f.id }))}
-            onChange={setTargetFieldId} // ✅ 只更新状态，不触发提交
+            onChange={setTargetFieldId}
           />
+        </Form.Item>
+
+        {/* ✅ 新增：操作模式选择 */}
+        <Form.Item label="操作模式">
+          <Radio.Group
+            value={operationMode}
+            onChange={(e) => setOperationMode(e.target.value)}
+          >
+            <Radio value="add">新增</Radio>
+            <Radio value="overwrite">聚焦覆盖</Radio>
+            <Radio value="fillEmpty">空白补全</Radio>
+          </Radio.Group>
         </Form.Item>
       </Form>
     </Drawer>
