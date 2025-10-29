@@ -147,3 +147,6 @@ dist
 output/
 
 .DS_Store
+
+# 忽略打包压缩文件
+*.zip
