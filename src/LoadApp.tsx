@@ -269,7 +269,7 @@ function LoadApp() {
   useEffect(() => {
     const timer = setTimeout(() => {
       if (selectedValue) handleCallAPI(1, pageSize, selectedValue, selectFieldId!, keyword);
-    }, 500);
+    }, 300);
     return () => clearTimeout(timer);
   }, [keyword]);
   /** ✅ 2️⃣ 点击确定时保存本地配置 **/
